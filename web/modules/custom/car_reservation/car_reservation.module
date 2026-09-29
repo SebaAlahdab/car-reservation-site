@@ -1,0 +1,90 @@
+<?php
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\Entity\Node;
+use Drupal\user\Entity\User;
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ */
+function car_reservation_form_node_reservation_form_alter(
+  &$form,
+  FormStateInterface $form_state,
+  $form_id
+) {
+  // Automatically select the car from ?field_car=6.
+  $car_id = \Drupal::request()->query->get('field_car');
+
+  if ($car_id) {
+    $car = Node::load($car_id);
+
+    if ($car && isset($form['field_car'])) {
+      $form['field_car']['widget'][0]['target_id']['#default_value'] = $car;
+    }
+  }
+
+  // Automatically select the currently logged-in user.
+  $current_user = \Drupal::currentUser();
+
+  if (!$current_user->isAnonymous() && isset($form['field_user'])) {
+    $user = User::load($current_user->id());
+
+    if ($user) {
+      $form['field_user']['widget'][0]['target_id']['#default_value'] = $user;
+    }
+  }
+}
+
+/**
+ * Implements hook_validate().
+ */
+function car_reservation_validate(&$form, FormStateInterface $form_state) {
+  $start = $form_state->getValue('field_start_date');
+  $end = $form_state->getValue('field_end_date');
+
+  if (empty($start) || empty($end)) {
+    return;
+  }
+
+  $start_value = car_reservation_get_date_value($start);
+  $end_value = car_reservation_get_date_value($end);
+
+  if (!$start_value || !$end_value) {
+    return;
+  }
+
+  $start_timestamp = strtotime($start_value);
+  $end_timestamp = strtotime($end_value);
+
+  if ($start_timestamp === FALSE || $end_timestamp === FALSE) {
+    return;
+  }
+
+  if ($end_timestamp <= $start_timestamp) {
+    $form_state->setErrorByName(
+      'field_end_date',
+      t('The end date must be after the start date.')
+    );
+  }
+}
+
+/**
+ * Gets the actual date value from a Drupal field value.
+ */
+function car_reservation_get_date_value($value) {
+  if (is_string($value) || is_numeric($value)) {
+    return (string) $value;
+  }
+
+  if (is_array($value)) {
+    foreach ($value as $item) {
+      $result = car_reservation_get_date_value($item);
+
+      if ($result !== NULL) {
+        return $result;
+      }
+    }
+  }
+
+  return NULL;
+}

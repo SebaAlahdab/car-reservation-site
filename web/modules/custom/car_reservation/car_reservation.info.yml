@@ -1,0 +1,5 @@
+name: Car Reservation
+type: module
+description: Automatically selects the car on reservation forms.
+core_version_requirement: ^10 || ^11
+package: Custom
